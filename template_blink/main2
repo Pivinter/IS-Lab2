@@ -1,0 +1,75 @@
+#include <avr/io.h>
+#include <util/delay.h>
+#include <avr/interrupt.h>
+
+uint8_t dl1 = 0, state = 0;
+uint8_t data = 1;
+uint8_t count = 0;
+
+const uint8_t dec_to_7seg[] = {0x3F, 0x06, 0x5B, 0x4f, 0x66, 0x6D, 0x7D, 0x07, 
+                            0x7F, 0x6F, 0x77, 0x7C, 0x39, 0x5E, 0x79, 0x71};
+
+void key_handler(void)
+{
+  state++; 
+  if (state > 2) {
+    PORTD = count = 0;
+    state = 0;
+  }
+}
+
+void scan_key(void)
+{
+  static uint8_t shreg;
+
+  shreg <<= 1; // shreg = shreg + shreg; , shreg = shreg * 2;
+  if((PINB & (1<<PB1)) != 0) {
+    shreg |= 1;
+  }
+
+  if ((shreg & 0x07) == 0x04) { 
+      key_handler();
+  }
+}
+
+uint8_t inc_bcd(uint8_t val)
+{
+    uint8_t a, b;
+
+    b = val >> 4;
+    a = val & 15;
+    
+    if (++a > 9) {
+      a = 0;
+      if (++b > 9) {
+        b = 0;
+      }
+    }
+    return (b << 4) | a;
+}
+
+
+//-----------------------------------------------------------
+int main(void)
+{
+  UCSR0B = 0;
+  UCSR0C = 0;
+  DDRD = 0xFF;
+
+
+    for (;;) 
+    {
+        scan_key();
+
+        if (state == 1) {
+          if (++dl1 > 40) {
+            dl1 = 0;
+            if (++count > 15) count = 0;
+            PORTD = dec_to_7seg[count];
+          }
+        } 
+        _delay_ms(10);
+        
+    }
+    return 0;
+}

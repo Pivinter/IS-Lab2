@@ -1,0 +1,71 @@
+#include <avr/io.h>
+#include <util/delay.h>
+#include <avr/interrupt.h>
+
+uint8_t dl1 = 0, state = 0;
+uint8_t data = 1;
+uint8_t count = 0;
+
+void key_handler(void)
+{
+  state ^=1;
+
+  static uint8_t d = 0;
+
+  d <<= 1;
+  d |= 1;
+
+  PORTD = d;
+  if (d >= 255) {
+    d = 0; 
+    PORTD = d;
+  }
+}
+
+void scan_key(void)
+{
+  static uint8_t shreg;
+
+  shreg <<= 1; // shreg = shreg + shreg; , shreg = shreg * 2;
+  if((PINB & (1<<PB1)) != 0) {
+    shreg |= 1;
+  }
+
+  if ((shreg & 0x07) == 0x04) {
+        state = (state + 1) % 3;
+
+        if (state == 0) {
+            count = 0;
+        }
+    }
+}
+
+
+
+//-----------------------------------------------------------
+int main(void)
+{
+  UCSR0B = 0;
+  UCSR0C = 0;
+  DDRD = 0xFF;
+
+
+    for (;;) 
+    {
+        scan_key();
+
+        if (state == 1) {
+          if (++dl1 > 15) {
+            dl1 = 0;
+            count++;
+            if (count > 256) {
+                count = 0;
+            }
+            PORTD = count;
+          }
+        }
+        _delay_ms(10);
+    }
+    return 0;
+}
+
